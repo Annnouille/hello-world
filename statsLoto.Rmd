@@ -1,0 +1,68 @@
+---
+title: "Statistiques Loto"
+runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+Source : https://www.fdj.fr/jeux-de-tirage/loto/statistiques  
+
+```{r imports, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(googledrive)
+library(plotly)
+
+rm(list=ls())
+
+listFichiers <- drive_find() %>% slice(str_which(name, "loto"))
+for(i in 1:nrow(listFichiers)){
+  drive_download(listFichiers$name[i], overwrite = T)
+  if(i==1){
+    loto <- read_delim(listFichiers$name[i], delim = ";")
+  }else{loto <- bind_rows(loto,read_delim(listFichiers$name[i], delim = ";"))}
+  file.remove(listFichiers$name[i])
+}
+data_loto <- loto %>% select(date_de_tirage, boule_1, boule_2, boule_3, boule_4, 
+                             boule_5, numero_chance) %>%
+  mutate(date = as.Date(date_de_tirage, format = "%d/%m/%Y")) %>% select(-date_de_tirage)
+
+nTirages <- nrow(data_loto)
+```
+
+Nombre de tirages : `r nTirages`.  
+
+```{r}
+tblCombinaisons <- data_loto %>%
+  group_by(boule_1, boule_2, boule_3, boule_4, boule_5, numero_chance) %>%
+  summarise(nbTirages = n()) %>% ungroup()
+```
+
+Une combinaison des 5 numéros et du numéro chance est sorti au maximum `r max(tblCombinaisons$nbTirages)` fois sur les `r nTirages` tirages.  
+
+```{r}
+statLoto <- data_loto %>% gather("numero","valeur",-date) %>%
+  arrange(date, numero) %>%
+  group_by(numero, valeur) %>% summarise(nbTirages = n()) %>% ungroup() %>%
+  group_by(numero) %>% mutate(freq = nbTirages / sum(nbTirages, na.rm = T)) %>% ungroup()
+statLoto$numero <- gsub("_", " ", statLoto$numero)
+statLoto$numero <- gsub("b", "B", statLoto$numero)
+statLoto$numero <- gsub("numero", "Numéro", statLoto$numero)
+statLoto$numero <- factor(statLoto$numero)
+statLoto$valeur <- factor(statLoto$valeur)
+
+selectInput(inputId = "numero", label = "Numéro", choices = levels(statLoto$numero),
+            selected = "Boule 1")
+renderPlot(
+  ggplot(statLoto %>% filter(numero == input$numero) %>% 
+         mutate(valeur = factor(valeur))) + 
+  geom_bar(mapping = aes(x = valeur, y = freq, fill = numero), stat = "identity") +
+    theme(legend.position = "none") + ylab("Fréquence de sortie") + xlab("Numéro") +
+    scale_y_continuous(labels = scales::percent) +
+    ggtitle("Fréquence de sortie des numéros")
+)
+```
+
