@@ -18,13 +18,14 @@ library(plotly)
 
 rm(list=ls())
 
-listFichiers <- drive_find() %>% slice(str_which(name, "loto"))
-for(i in 1:nrow(listFichiers)){
-  drive_download(listFichiers$name[i], overwrite = T)
+# listFichiers <- drive_find() %>% slice(str_which(name, "loto"))
+listFichiers <- list.files()[str_detect(list.files(), pattern = ".csv")]
+for(i in 1:length(listFichiers)){
+  # drive_download(listFichiers$name[i], overwrite = T)
   if(i==1){
-    loto <- read_delim(listFichiers$name[i], delim = ";")
-  }else{loto <- bind_rows(loto,read_delim(listFichiers$name[i], delim = ";"))}
-  file.remove(listFichiers$name[i])
+    loto <- read_delim(listFichiers[i], delim = ";")
+  }else{loto <- bind_rows(loto,read_delim(listFichiers[i], delim = ";"))}
+  # file.remove(listFichiers$name[i])
 }
 data_loto <- loto %>% select(date_de_tirage, boule_1, boule_2, boule_3, boule_4, 
                              boule_5, numero_chance) %>%
